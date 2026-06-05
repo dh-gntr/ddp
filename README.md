@@ -9,20 +9,19 @@ A research framework for post-hoc uncertainty quantification (UQ) using Dirichle
 
 Deep neural networks often produce overconfident predictions, particularly under distribution shift or on difficult samples. This repository investigates post-hoc uncertainty quantification methods that operate on top of a pre-trained frozen classifier without modifying the base network.
 
-The core idea is to train lightweight meta-models that consume representations extracted from one or more layers of a frozen backbone and predict uncertainty-aware Dirichlet distributions.
+The core idea is to train lightweight meta-models that consume representations extracted from one or more layers of a frozen backbone and predict uncertainty-aware Dirichlet distributions. 
 
-The framework includes:
+The various frameworks include:
 
-* Dirichlet Evidential Meta-Model
-* Multi-Layer Dirichlet Meta-Model
 * HydraNet
+* Dirichlet Evidential Meta-Model
 * Multi-Head Meta-Model
 * MetaConsensus
 * HydraMagic
 * Base-Model Concatenation Variants
 * Weight Entropy Maximization (Max-WEnt)
 * Alternative uncertainty losses and calibration objectives
-* Extensive evaluation metrics and ablations
+* Extensive evaluation metrics and ablations on noise and compression and class detection performance
 
 ---
 
@@ -30,47 +29,33 @@ The framework includes:
 
 ```text
 .
-├── configs/
-│   ├── datasets/
-│   ├── models/
-│   └── experiments/
-│
-├── datasets/
+
+├── data/
 │   ├── bach/
 │   ├── ham10000/
 │   ├── breakhis/
+|   ├── cifar100/
+|   ├── cifar10/
+|   ├── MNIST/
+|   ├── FashionMNIST
+|   ├── SVHN
 │   └── ...
 │
 ├── models/
-│   ├── backbone/
-│   ├── metamodel/
-│   ├── hydranet/
-│   ├── hydramagic/
-│   ├── metaconsensus/
-│   └── multihead/
+│   ├── resnet18meta.py
+│   ├── vgg.py
+│   ├── init.py
+│   ├── lenet.py
 │
-├── losses/
-│   ├── belief_matching.py
-│   ├── evidential_loss.py
-│   ├── entropy_regularization.py
-│   └── calibration_losses.py
-│
-├── metrics/
-│   ├── auroc.py
-│   ├── calibration.py
-│   ├── uncertainty.py
-│   └── ood.py
-│
-├── experiments/
-│   ├── baselines/
-│   ├── ablations/
-│   └── comparisons/
-│
-├── scripts/
-│   ├── train.py
-│   ├── evaluate.py
-│   └── visualize.py
-│
+├── checkpoint/
+├── results/
+├── train_meta_model_combine.py
+├── train_base_model.py
+├── losses.py
+├── preproc.py
+├── metrics.py
+├── baseline.ipynb
+├── hydranet.ipynb
 └── README.md
 ```
 
@@ -143,18 +128,6 @@ This improves uncertainty estimation under domain shift and difficult examples.
 
 # Implemented Methods
 
-## Dirichlet Meta-Model
-
-Baseline evidential meta-model.
-
-Features:
-
-* Frozen backbone
-* Single-head uncertainty estimator
-* Dirichlet evidence prediction
-
----
-
 ## HydraNet
 
 HydraNet introduces multiple uncertainty estimation heads.
@@ -175,11 +148,24 @@ Motivation:
 
 ---
 
+## Dirichlet Meta-Model
+
+Baseline evidential meta-model.
+
+Features:
+
+* Frozen backbone
+* Single-head uncertainty estimator
+* Dirichlet evidence prediction
+
+---
+
+
 ## Multi-Head Meta-Model
 
-Extension of the basic meta-model with independent prediction heads.
+Extension of the basic meta-model with independent feature heads, inspired from the Hydranet model. One of the four features is randomly chosen and applied projector on.
 
-Each head predicts:
+Each projector-classifier predicts:
 
 ```math
 Dir(\alpha_h)
@@ -190,12 +176,12 @@ Outputs can be:
 * Averaged
 * Weighted
 * Consensus aggregated
-
+during inference
 ---
 
 ## MetaConsensus
 
-MetaConsensus combines predictions from multiple uncertainty heads using a learned consensus mechanism.
+MetaConsensus samples two of the four features and applies a KL divergence loss between their predicted distributions to reduce disagreement for ID samples.
 
 Goals:
 
@@ -215,6 +201,8 @@ HydraMagic combines:
 * Consensus aggregation
 
 to generate richer uncertainty representations.
+
+It provides multiple projectors per block and multiple feature choices chosen randomly during training, thus maximising diversity richness during training.
 
 ---
 
@@ -295,47 +283,18 @@ Benefits:
 
 ---
 
-## Entropy Regularization
 
-Encourages diversity across uncertainty heads and feature scales.
-
----
 
 # Evaluation Metrics
 
 ## Classification Metrics
 
 * Accuracy
-* Balanced Accuracy
-* F1 Score
-* Precision
-* Recall
+
 
 ---
 
-## Calibration Metrics
 
-### Expected Calibration Error (ECE)
-
-Measures calibration gap between confidence and accuracy.
-
-### Maximum Calibration Error (MCE)
-
-Worst-case calibration error across bins.
-
-### Adaptive ECE
-
-Adaptive binning-based calibration measure.
-
-### Brier Score
-
-Measures probabilistic prediction quality.
-
-### Negative Log Likelihood (NLL)
-
-Evaluates probabilistic correctness.
-
----
 
 ## Uncertainty Metrics
 
@@ -363,24 +322,12 @@ Lower evidence implies higher uncertainty.
 
 ---
 
-### Vacuity
 
-Measures lack of evidence.
-
----
-
-### Dissonance
-
-Measures conflicting evidence.
-
----
 
 ## OOD Detection Metrics
 
 * AUROC
-* AUPR-In
-* AUPR-Out
-* FPR95
+
 
 ---
 
@@ -401,10 +348,10 @@ Evaluates uncertainty performance across:
 
 Studies:
 
-* Early layers
-* Mid layers
-* Late layers
-* Multi-layer combinations
+* Early layers (0123)
+* Mid layers (0246)
+* Late layers (46810)
+* Multi-layer combinations (04812) (371115)
 
 ---
 
@@ -412,44 +359,19 @@ Studies:
 
 Investigates:
 
-* 1 Head
-* 2 Heads
+* 2 Head
+* 3 Heads
 * 4 Heads
-* 8 Heads
+* 5 Heads
 
 for uncertainty estimation.
 
 ---
 
-## Entropy Regularization Ablations
-
-Evaluates impact of:
-
-* No entropy regularization
-* Fixed entropy coefficient
-* Adaptive entropy coefficient
-
----
-
-## Consensus Strategy Ablations
-
-Comparison between:
-
-* Mean aggregation
-* Weighted aggregation
-* Learned consensus
-* HydraMagic consensus
-
----
 
 # Datasets
 
-Medical Imaging:
 
-* BACH
-* HAM10000
-* BreakHIS
-* DIV2K
 
 Natural Images:
 
@@ -465,22 +387,18 @@ Natural Images:
 Train a meta-model:
 
 ```bash
-python train.py \
-    --config configs/experiments/metamodel.yaml
+python train_meta_model_combine.py \
+    
 ```
 
-Evaluate:
+Train base model:
 
 ```bash
-python evaluate.py \
-    --checkpoint checkpoints/model.ckpt
+python train_base_model.py \
+    --checkpoint checkpoint/model.ckpt
 ```
 
-Generate uncertainty metrics:
 
-```bash
-python scripts/compute_metrics.py
-```
 
 ---
 
